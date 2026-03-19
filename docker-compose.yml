@@ -1,0 +1,18 @@
+services:
+  claude-dashboard:
+    build: .
+    container_name: claude-dashboard
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"
+    volumes:
+      - ${MEMORY_DIR:-~/.claude-code/memory}:/data/memory:ro
+      - ${HISTORY_FILE:-~/.claude/history.jsonl}:/data/history.jsonl:ro
+    environment:
+      BIND: "0.0.0.0"
+      PORT: "80"
+      USE_SSL: "0"
+      MEMORY_DIR: /data/memory
+      HISTORY_FILE: /data/history.jsonl
+      AUTH_USER: ${AUTH_USER:-admin}
+      AUTH_PASS: ${AUTH_PASS:-changeme}
