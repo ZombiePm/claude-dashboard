@@ -1,37 +1,90 @@
-# Claude Dashboard
+# claude-dashboard
 
-Web dashboard for [Claude Code](https://claude.ai/claude-code) — browse memory files and session history in a browser.
+Web-dashboard для [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — просмотр memory-файлов и истории сессий через браузер. Один файл на Python, ноль зависимостей, Docker-ready.
 
-![Python](https://img.shields.io/badge/python-3.10+-blue) ![Dependencies](https://img.shields.io/badge/dependencies-0-green) ![Docker](https://img.shields.io/badge/docker-ready-blue)
+```
+Memory: sidebar с группировкой по типам, markdown-рендеринг, поиск
+Sessions: таблица всех сессий, полнотекстовый поиск, drawer с логом диалога
+Auth: логин/пароль, cookie-сессии
+```
 
-## Features
+## Возможности
 
-- **Memory viewer** — sidebar grouped by type (user, feedback, project, reference), rendered markdown, raw view, full-text search
-- **Sessions viewer** — sortable table of all sessions, full-text search across all messages (not just first/last), click-to-copy resume commands
-- **Session drawer** — click any row to open a side panel with the full conversation log, search term highlighting
-- **Auth** — simple login/password with cookie sessions
-- **Zero dependencies** — pure Python stdlib, single file, no pip install needed
+- **Memory viewer** — все `.md` файлы из memory-директории, сгруппированы по типам (user, feedback, project, reference), переключение rendered/raw, поиск
+- **Sessions** — таблица всех сессий Claude Code с сортировкой, полнотекстовый поиск по всем сообщениям (не только first/last), кнопка копирования `cd + claude --resume` команды
+- **Session drawer** — клик по строке открывает панель справа с полным логом диалога, подсветка найденных слов при активном поиске
+- **Один файл** — весь код, шаблоны, стили и JS в `server.py` (~30KB)
+- **Ноль зависимостей** — только Python stdlib, никакого `pip install`
+- **Конфигурация через env** — пароль, порт, пути, SSL — всё через переменные окружения
 
-## Quick Start
+## Быстрый старт
 
 ### Docker Compose
 
 ```bash
-git clone https://github.com/youruser/claude-dashboard.git
+git clone https://github.com/ZombiePm/claude-dashboard.git
 cd claude-dashboard
-
-# Set credentials
-export AUTH_USER=admin
-export AUTH_PASS=your-secure-password
-
+cp .env.example .env
+# Отредактируйте .env — как минимум AUTH_PASS
 docker compose up -d
 ```
 
-Open `http://localhost:8080`
+Открыть `http://localhost:8080`
 
-### Docker in existing compose
+### Без Docker
 
-Add to your `docker-compose.yml`:
+```bash
+git clone https://github.com/ZombiePm/claude-dashboard.git
+cd claude-dashboard
+export AUTH_PASS=your-password
+export USE_SSL=0
+python3 server.py
+```
+
+Открыть `http://localhost:8080`
+
+## Конфигурация
+
+Копируйте `.env.example` → `.env` и настройте:
+
+```bash
+# Сервер
+BIND=0.0.0.0
+PORT=8080
+USE_SSL=0
+
+# Авторизация
+AUTH_USER=admin
+AUTH_PASS=changeme
+
+# Данные (пути к Claude Code)
+MEMORY_DIR=/root/MEMORY
+HISTORY_FILE=/root/.claude/history.jsonl
+
+# SSL (при USE_SSL=1)
+# CERT_FILE=cert.pem
+# KEY_FILE=key.pem
+
+# Нормализация путей Windows → Linux
+# NORM_PATH_MAP=C:/Users/me=/home/me
+```
+
+Все параметры:
+
+| Переменная | По умолчанию | Описание |
+|---|---|---|
+| `BIND` | `0.0.0.0` | Адрес прослушивания |
+| `PORT` | `8080` | Порт |
+| `USE_SSL` | `1` | `1` — HTTPS, `0` — HTTP |
+| `CERT_FILE` | `cert.pem` | SSL сертификат |
+| `KEY_FILE` | `key.pem` | SSL ключ |
+| `MEMORY_DIR` | `/root/MEMORY` | Директория с memory-файлами |
+| `HISTORY_FILE` | `/root/.claude/history.jsonl` | Файл истории сессий |
+| `AUTH_USER` | `admin` | Логин |
+| `AUTH_PASS` | `changeme` | Пароль |
+| `NORM_PATH_MAP` | _(пусто)_ | Маппинг путей (см. ниже) |
+
+## Интеграция в существующий compose
 
 ```yaml
   claude-dashboard:
@@ -39,8 +92,8 @@ Add to your `docker-compose.yml`:
     container_name: claude-dashboard
     restart: unless-stopped
     volumes:
-      - ~/.claude-code/memory:/data/memory:ro
-      - ~/.claude/history.jsonl:/data/history.jsonl:ro
+      - /path/to/memory:/data/memory:ro
+      - /path/to/history.jsonl:/data/history.jsonl:ro
     environment:
       BIND: "0.0.0.0"
       PORT: "80"
@@ -48,40 +101,25 @@ Add to your `docker-compose.yml`:
       MEMORY_DIR: /data/memory
       HISTORY_FILE: /data/history.jsonl
       AUTH_USER: admin
-      AUTH_PASS: your-secure-password
+      AUTH_PASS: your-password
 ```
 
-### Behind reverse proxy (Nginx Proxy Manager, Traefik, etc.)
+За reverse proxy (NPM, nginx, Traefik): upstream `claude-dashboard:80`, scheme `http`.
 
-1. Add the container to the same Docker network as your proxy
-2. Create proxy host: `dashboard.example.com` → `claude-dashboard:80` (http)
-3. Enable SSL on the proxy side
+## SSL
 
-### Standalone (no Docker)
+Для standalone-режима с HTTPS:
 
 ```bash
-export AUTH_USER=admin
-export AUTH_PASS=your-secure-password
-export BIND=0.0.0.0
-export PORT=8080
-export USE_SSL=0
-python3 server.py
-```
-
-### With SSL
-
-```bash
-# Generate self-signed cert
+# Генерация самоподписанного сертификата
 openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem \
   -days 365 -nodes -subj '/CN=localhost'
 
 export USE_SSL=1
-export CERT_FILE=cert.pem
-export KEY_FILE=key.pem
 python3 server.py
 ```
 
-### Systemd service
+## Systemd
 
 ```ini
 [Unit]
@@ -90,13 +128,7 @@ After=network.target
 
 [Service]
 Type=simple
-Environment=BIND=0.0.0.0
-Environment=PORT=8080
-Environment=USE_SSL=0
-Environment=AUTH_USER=admin
-Environment=AUTH_PASS=your-secure-password
-Environment=MEMORY_DIR=/path/to/memory
-Environment=HISTORY_FILE=/path/to/history.jsonl
+EnvironmentFile=/opt/claude-dashboard/.env
 ExecStart=/usr/bin/python3 /opt/claude-dashboard/server.py
 Restart=on-failure
 RestartSec=5
@@ -105,70 +137,56 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-## Configuration
+## Нормализация путей
 
-All settings via environment variables:
-
-| Variable | Default | Description |
-|---|---|---|
-| `BIND` | `0.0.0.0` | Listen address |
-| `PORT` | `8080` | Listen port |
-| `USE_SSL` | `1` | `1` = HTTPS, `0` = HTTP |
-| `CERT_FILE` | `cert.pem` | SSL certificate (when `USE_SSL=1`) |
-| `KEY_FILE` | `key.pem` | SSL private key (when `USE_SSL=1`) |
-| `MEMORY_DIR` | `/root/MEMORY` | Claude Code memory directory |
-| `HISTORY_FILE` | `/root/.claude/history.jsonl` | Claude Code session history |
-| `AUTH_USER` | `admin` | Login username |
-| `AUTH_PASS` | `changeme` | Login password |
-| `NORM_PATH_MAP` | _(empty)_ | Path normalization rules (see below) |
-
-### Path normalization
-
-Sessions store project paths from the machine where Claude Code ran (often Windows paths). The dashboard normalizes them for the `cd` command. Configure with `NORM_PATH_MAP`:
+Сессии хранят пути проектов с машины, где запускался Claude Code. Если Claude Code работал на Windows, а dashboard крутится на Linux — пути не совпадут. `NORM_PATH_MAP` решает это:
 
 ```bash
-# Format: source=target,source2=target2
-export NORM_PATH_MAP="C:/Users/me=/home/me,//server/share=/mnt/share"
+# Windows → Linux
+NORM_PATH_MAP=C:/Users/me=/home/me,D:/projects=/srv/projects
+
+# UNC → Linux
+NORM_PATH_MAP=//server/share=/mnt/share
 ```
 
-## Data Sources
+## Источники данных
 
-The dashboard reads two data sources (**read-only**):
+Dashboard читает два источника (**read-only**):
 
-### Memory directory
-
-Contains `.md` files with optional YAML frontmatter:
+**Memory** — директория с `.md` файлами. Опциональный YAML frontmatter:
 
 ```markdown
 ---
-name: My Memory
-description: One-line description
-type: user|feedback|project|reference
+name: Server Config
+description: Production server configuration notes
+type: project
 ---
 
 Content here...
 ```
 
-`MEMORY.md` serves as the index file.
-
-### history.jsonl
-
-Claude Code's session history — one JSON object per line:
+**history.jsonl** — история сессий Claude Code, по одной JSON-строке:
 
 ```json
-{"display": "user message text", "timestamp": 1234567890000, "sessionId": "uuid", "project": "/path/to/project"}
+{"display": "текст сообщения", "timestamp": 1234567890000, "sessionId": "uuid", "project": "/path"}
 ```
 
-## File Structure
+## Структура
 
 ```
 claude-dashboard/
-├── server.py          # Application (all code, templates, styles)
-├── Dockerfile         # Python 3.12-slim image
-├── docker-compose.yml # Quick-start compose
-└── README.md
+├── server.py            # Всё приложение
+├── Dockerfile           # python:3.12-slim
+├── docker-compose.yml   # Быстрый старт
+├── .env.example         # Шаблон конфигурации
+└── .gitignore
 ```
 
-## License
+## Требования
 
-MIT
+| Компонент | Минимум |
+|---|---|
+| Python | 3.10+ |
+| Docker | 20+ (опционально) |
+| Диск | ~1 MB (сам dashboard) |
+| RAM | ~30 MB |
