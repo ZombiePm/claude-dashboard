@@ -252,6 +252,15 @@ def nav(active="home"):
         .replace("NAV_SESSIONS", "active" if active == "sessions" else ""))
 
 
+def inject_nav(html_page, active):
+    """Insert nav before the LAST </body> only, to avoid breaking inline content."""
+    tag = "</body>"
+    idx = html_page.rfind(tag)
+    if idx == -1:
+        return html_page
+    return html_page[:idx] + nav(active) + tag + html_page[idx + len(tag):]
+
+
 # ── Templates ──
 
 INDEX_TEMPLATE = """<!DOCTYPE html>
@@ -490,11 +499,11 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         if path == "/":
-            self.respond(200, "text/html", INDEX_TEMPLATE.replace("</body>", nav("home") + "</body>"))
+            self.respond(200, "text/html", inject_nav(INDEX_TEMPLATE, "home"))
         elif path == "/memory":
-            self.respond(200, "text/html", build_memory_page().replace("</body>", nav("memory") + "</body>"))
+            self.respond(200, "text/html", inject_nav(build_memory_page(), "memory"))
         elif path == "/sessions":
-            self.respond(200, "text/html", build_sessions_page().replace("</body>", nav("sessions") + "</body>"))
+            self.respond(200, "text/html", inject_nav(build_sessions_page(), "sessions"))
         else:
             self.respond(404, "text/html", "<h1>404</h1>")
 
