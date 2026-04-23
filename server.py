@@ -264,7 +264,7 @@ def inject_nav(html_page, active):
 # ── Templates ──
 
 INDEX_TEMPLATE = """<!DOCTYPE html>
-<html lang="ru"><head><meta charset="UTF-8"><title>Claude Code Dashboard</title>
+<html lang="ru"><head><meta charset="UTF-8"><link rel="icon" href="/favicon.ico"><title>Claude Code Dashboard</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#c9d1d9;display:flex;align-items:center;justify-content:center;min-height:100vh}
@@ -289,7 +289,7 @@ a.card:hover{border-color:#58a6ff;background:#1c2129;transform:translateY(-2px);
 </div></body></html>"""
 
 MEMORY_TEMPLATE = """<!DOCTYPE html>
-<html lang="ru"><head><meta charset="UTF-8"><title>Claude Memory</title>
+<html lang="ru"><head><meta charset="UTF-8"><link rel="icon" href="/favicon.ico"><title>Claude Memory</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#c9d1d9;display:flex;height:100vh;overflow:hidden}}
@@ -376,7 +376,7 @@ function filterSidebar(q){{q=q.toLowerCase();document.querySelectorAll('.sidebar
 </script></body></html>"""
 
 SESSIONS_TEMPLATE = """<!DOCTYPE html>
-<html lang="ru"><head><meta charset="UTF-8"><title>Claude Sessions</title>
+<html lang="ru"><head><meta charset="UTF-8"><link rel="icon" href="/favicon.ico"><title>Claude Sessions</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:20px}
@@ -448,7 +448,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer()})
 
 
 LOGIN_TEMPLATE = """<!DOCTYPE html>
-<html lang="ru"><head><meta charset="UTF-8"><title>Login — Claude Dashboard</title>
+<html lang="ru"><head><meta charset="UTF-8"><link rel="icon" href="/favicon.ico"><title>Login — Claude Dashboard</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#c9d1d9;display:flex;align-items:center;justify-content:center;min-height:100vh}
@@ -476,6 +476,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = unquote(self.path).split("?")[0].rstrip("/") or "/"
+        if path == "/favicon.ico":
+            try:
+                with open(os.path.join(os.path.dirname(__file__) or ".", "favicon.ico"), "rb") as f:
+                    data = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/x-icon")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.end_headers()
+                self.wfile.write(data)
+            except FileNotFoundError:
+                self.respond(404, "text/html", "<h1>404</h1>")
+            return
         if path == "/login":
             self.respond(200, "text/html", LOGIN_TEMPLATE.replace("<!--ERROR-->", ""))
             return
